@@ -12,7 +12,7 @@ DEFAULT_LANG = 'en'
 
 DEFAULT_PAGINATION = 3
 
-THEME = 'themes/openmoments'
+THEME = 'themes/bootstrap-brew'
 
 PATH = 'content'
 PAGE_PATHS = ['pages']
