@@ -50,3 +50,7 @@ ARTICLE_SAVE_AS = 'posts/{date:%Y}/{date:%b}/{date:%d}/{slug}/index.html'
 #RELATIVE_URLS = True
 
 DISQUS_SITENAME = 'open-moments'
+
+FAVICON = 'theme/images/favicon.png'
+FAVICON_IE = 'theme/images/favicon-32x32.png'
+TOUCHICON = 'theme/images/favicon-touch.png'
