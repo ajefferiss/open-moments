@@ -17,7 +17,12 @@ THEME = 'themes/bootstrap-brew'
 PATH = 'content'
 PAGE_PATHS = ['pages']
 
-MARKDOWN = {'extensions': ['toc']}
+PYGMENTS_STYLE = 'monokai'
+MARKDOWN = {'extensions': [
+                            'toc',
+                            'fenced_code',
+                            'codehilite(css_class=highlight)',
+                          ]}
 
 # Feed generation is usually not desired when developing
 FEED_ALL_ATOM = None
