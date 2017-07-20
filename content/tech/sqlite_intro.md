@@ -3,6 +3,7 @@ Title: Introduction to SQLite
 Description: Straight forward introduction to SQLite to build a contacts database.
 Tags: sqlite tutorial sql
 Slug: sqlite_intro
+Summary: [SQLite](https://www.sqlite.org) is a self-contained [SQL](https://en.wikipedia.org/wiki/SQL) database engine. This means that an application is able to make use of all of the benefits of a [rational database](https://en.wikipedia.org/wiki/Relational_database_management_system) without needing to provide...
 
 [TOC]
 
