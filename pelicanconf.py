@@ -17,6 +17,9 @@ THEME = 'themes/bootstrap-brew'
 PATH = 'content'
 PAGE_PATHS = ['pages']
 
+PLUGIN_PATHS = ['../pelican-plugins/']
+PLUGINS = ['read_more_link']
+
 PYGMENTS_STYLE = 'monokai'
 MARKDOWN = {'extensions': [
                             'toc',
@@ -61,3 +64,9 @@ DISQUS_SITENAME = 'open-moments'
 FAVICON = 'theme/images/favicon.png'
 FAVICON_IE = 'theme/images/favicon-32x32.png'
 TOUCHICON = 'theme/images/favicon-touch.png'
+
+# This indicates what goes inside the read more link
+READ_MORE_LINK = '<span>continue reading &raquo;</span>'
+
+# This is the format of the read more link
+READ_MORE_LINK_FORMAT = '<a class="read-more" href="/{url}">{text}</a>'
