@@ -93,7 +93,6 @@ class UserDAL {
 Each user is going to have a password stored with their accounts, we're going to do the following things for these passwords:
 
 * Use a cryptographically strong hashing function
-* Use a random salt for each password
 * Require strong passwords, we're going to define a strong password as one containing a minimum of 8 characters and have at least 3 of the following 4 rules:
     * Upper case letters
     * Lower case letters
@@ -101,7 +100,7 @@ Each user is going to have a password stored with their accounts, we're going to
     * Symbols
 * Place no limit on the upper number of characters allowed
 
-We'll do this using the following PHP function:
+To check to see if a user has entered a strong password; we'll make use of the following `user_funcs.php` script.
 ```
 DEFINE('MIN_PASSWD_LEN', 8);
 DEFINE('NUMBER_REGEX', '/[0-9]+/');
@@ -135,16 +134,9 @@ function password_strength_check($password, &$errors) {
 
     return ($errors == $inital_errors);
 }
-
-// Example usage...
-$errors = [];
-if (!password_strength_check('password', $errors)) {
-    echo "Failed password strength check!: "
-    print_r($errors);
-}
 ```
 
-We'll add this to a `user_funcs.php` script that we'll use for all of our user related functions. Now that we're happy with the strength of our password we need to hash it securely, we'll do this using the [password_hash](http://php.net/manual/en/function.password-hash.php) function which creates a strong one-way hash. We'll be generating the hash using the Blowfish algorithm. Assuming our plain text password is stored in the `$password` variable we simply run:
+Now that we're happy with the strength of our password we need to hash it securely, we'll do this using the [password_hash](http://php.net/manual/en/function.password-hash.php) function which creates a strong one-way hash, PHP will take care of creating a new salt for each hash. We'll be generating the hash using the Blowfish algorithm. Assuming our plain text password is stored in the `$password` variable we simply run:
 
 ```
 $hashed_password = password_hash($password, PASSWORD_BCRYPT);
