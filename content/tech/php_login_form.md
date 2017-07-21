@@ -1,4 +1,4 @@
-Date: 2017-06-30 14:35
+Date: 2017-07-21 14:35
 Title: PHP User Login
 Description: Tutorial on how to manage users with PHP and MySQL/MariaDB
 Tags: mysql php tutorial sql mariadb
@@ -68,12 +68,12 @@ The configuration for the database will be stored within a `config.inc.php` scri
 ?>
 ```
 
-To contain the database access for the users, we're going to create a new `class` to handle all of the interactions called `UserDAL`. We'll be added functions to this call through the tutorial, but the initial class will be:
+To contain the database access for the users, we're going to create a new `class` to handle all of the interactions called `UsersDAL`. We'll be added functions to this call through the tutorial, but the initial class will be:
 ```
 <?php
 require_once('config.inc.php');
 
-class UserDAL {
+class UsersDAL {
     private $db = null;
 
     public function __construct() {
@@ -90,50 +90,152 @@ class UserDAL {
 ```
 
 ### Creating Users
-Each user is going to have a password stored with their accounts, we're going to do the following things for these passwords:
+We'e going to contain all of the user related functions to a new class called `Users` this will let us map the database rows onto a PHP object so that we can have [ORM](https://en.wikipedia.org/wiki/Object-relational_mapping)-like behaviour. Our initial `Users` class will be:
+
+```
+<?php
+    require_once('UsersDAL.php');
+
+    class Users {
+        public $id;
+        public $username;
+        public $password;
+        public $email;
+        public $name;
+        public $family_name;
+    }
+?>
+```
+
+When we load records from the database we'll automatically map these on the variables in our `Users` class. For now we need to consider a few things about the password requirements for our users. We want to ensure we do the following to make sure our passwords are safe:
 
 * Use a cryptographically strong hashing function
-* Require strong passwords, we're going to define a strong password as one containing a minimum of 8 characters and have at least 3 of the following 4 rules:
+* Require strong passwords, we're going to define a strong password as one containing a minimum of 8 characters and have at least one of each:
     * Upper case letters
     * Lower case letters
     * Numbers
     * Symbols
 * Place no limit on the upper number of characters allowed
 
-To check to see if a user has entered a strong password; we'll make use of the following `user_funcs.php` script.
+To verify our passwords follow these rules; we're going to extend the `Users` class, so that we now include the following
+
 ```
-DEFINE('MIN_PASSWD_LEN', 8);
-DEFINE('NUMBER_REGEX', '/[0-9]+/');
-DEFINE('UPPER_CASE_REGEX', '/[A-Z]+/');
-DEFINE('LOWER_CASE_REGEX', '/[a-z]+/');
-DEFINE('SPECIAL_CHAR_REGEX', "/\W+/");
+<?php
+    require_once('UsersDAL.php');
 
-function password_strength_check($password, &$errors) {
-    $inital_errors = $errors;
+    DEFINE('MIN_PASSWD_LEN', 8);
+    DEFINE('NUMBER_REGEX', '/[0-9]+/');
+    DEFINE('UPPER_CASE_REGEX', '/[A-Z]+/');
+    DEFINE('LOWER_CASE_REGEX', '/[a-z]+/');
+    DEFINE('SPECIAL_CHAR_REGEX', "/\W+/");
 
-    echo "password = $password";
-    if (strlen($password) < MIN_PASSWD_LEN) {
-        $errors[] = "Password needs a minimum of " . MIN_PASSWD_LEN . " characters.";
+    class Users {
+        ...
+
+        public function is_password_strong($passwd, &$errors) {
+            $inital_errors = $errors;
+
+            echo "password = $password";
+            if (strlen($password) < MIN_PASSWD_LEN) {
+                $errors[] = "Password needs a minimum of " . MIN_PASSWD_LEN . " characters.";
+            }
+
+            if (!preg_match(NUMBER_REGEX, $password)) {
+                $errors[] = "Password requires at least one number";
+            }
+
+            if (!preg_match(UPPER_CASE_REGEX, $password)) {
+                $errors[] = "Password requires at least one upper case letter";
+            }
+
+            if (!preg_match(LOWER_CASE_REGEX, $password)) {
+                $errors[] = "Password requires at least one lower case letter";
+            }
+
+            if (!preg_match(SPECIAL_CHAR_REGEX, $password)) {
+                $errors[] = "Password much include at least one symbol";
+            }
+
+            return ($errors == $inital_errors);
+        }
     }
+```
 
-    if (!preg_match(NUMBER_REGEX, $password)) {
-        $errors[] = "Password requires at least one number";
-    }
+Now we're at the position whereby the next action we need to perform involves writing the user to the database, so we're going to need a simple HTML form post the information to our script. Before creating the script there's one thing you need to make sure you're doing and that is using HTTPs. It doesn't matter how secure you're making the database if you're sending everything over the internet in plain text! So, go away and set-up a HTTPs certificate for your site before it goes anywhere near the internet.
 
-    if (!preg_match(UPPER_CASE_REGEX, $password)) {
-        $errors[] = "Password requires at least one upper case letter";
-    }
+We need a simple index page, so put the following into `index.php`
 
-    if (!preg_match(LOWER_CASE_REGEX, $password)) {
-        $errors[] = "Password requires at least one lower case letter";
-    }
+```html
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Simple Users site</title>
+    </head>
+    <body>
+        <a href="register.php">Register</a> or <a href="login.php">Login</a>
+    </body>
+</html>
+```
 
-    if (!preg_match(SPECIAL_CHAR_REGEX, $password)) {
-        $errors[] = "Password much include at least one symbol";
-    }
+Now we're going to create the form to register users, at the moment we're not going to include client side validation, we'll provide that later. Our registration form will be
 
-    return ($errors == $inital_errors);
-}
+```
+<?php
+    require_once('Users.php');
+?>
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Register Users on site</title>
+    </head>
+    <body>
+        <?php
+            $error = "";
+            if (!empty($_POST)) {
+                if (empty($_POST['username']) || empty($_POST['password1'] || empty($_POST['email']))) {
+                    $error = "The username, password and email are all required.";
+                } else {
+                    if ($_POST['password1'] != $_POST['password2']) {
+                        $error .= "Passwords do not match<br />";
+                    }
+                    if (!filter_var($_POST['email'], FILTER_VALIDATE_EMAIL)) {
+                        $error .= "Invalid email format<br />";
+                    }
+
+                    $user = new Users();
+                    $password_errors = [];
+                    if (!$user->is_password_strong($_POST['password1'], $password_errors)) {
+                        $error .= implode("<br />")
+                    }
+
+                    if (empty($error)) {
+
+                    }
+                }
+            }
+
+            if ($error != "") {
+                echo '<p style="color: red;">'.$error.'</p>';
+            }
+        ?>
+        <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
+            Username: <br />
+            <input type="text" name="username" id="username" /><br />
+            Password: <br />
+            <input type="password" name="password1" id="password1" /><br />
+            Confirm Password: <br />
+            <input type="password" name="password2" id="password2" /><br />
+            Email address: <br />
+            <input type="text" name="email" id="email" /><br />
+            First name: <br />
+            <input type="text" name="first_name" id="first_name" /><br />
+            Family Name: <br />
+            <input type="text" name="family_name" id="family_name" /><br />
+            <br />
+            <input type="submit" value="Register User" />
+        </form>
+    </body>
+</html>
 ```
 
 Now that we're happy with the strength of our password we need to hash it securely, we'll do this using the [password_hash](http://php.net/manual/en/function.password-hash.php) function which creates a strong one-way hash, PHP will take care of creating a new salt for each hash. We'll be generating the hash using the Blowfish algorithm. Assuming our plain text password is stored in the `$password` variable we simply run:
