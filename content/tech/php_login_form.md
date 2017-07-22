@@ -50,7 +50,8 @@ CREATE TABLE mysite.users(
     password VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL,
     name VARCHAR(255),
-    family_name VARCHAR(255)
+    family_name VARCHAR(255),
+    session_id VARCHAR(55)
 );
 ```
 
@@ -68,7 +69,7 @@ The configuration for the database will be stored within a `config.inc.php` scri
 ?>
 ```
 
-To contain the database access for the users, we're going to create a new `class` to handle all of the interactions called `UsersDAL`. We'll be added functions to this call through the tutorial, but the initial class will be:
+To contain the database access for the users, we're going to create a new `class` to handle all of the interactions called `UsersDAL` in a file called `UsersDAL.php`. We'll be added functions to this call through the tutorial, but the initial class will be:
 ```
 <?php
 require_once('config.inc.php');
@@ -90,7 +91,7 @@ class UsersDAL {
 ```
 
 ### Creating Users
-We'e going to contain all of the user related functions to a new class called `Users` this will let us map the database rows onto a PHP object so that we can have [ORM](https://en.wikipedia.org/wiki/Object-relational_mapping)-like behaviour. Our initial `Users` class will be:
+We'e going to contain all of the user related functions to a new class called `Users` in a file called `Users.php` this will let us map the database rows onto a PHP object so that we can have [ORM](https://en.wikipedia.org/wiki/Object-relational_mapping)-like behaviour. Our initial `Users` class will be:
 
 ```
 <?php
@@ -135,24 +136,23 @@ To verify our passwords follow these rules; we're going to extend the `Users` cl
         public function is_password_strong($passwd, &$errors) {
             $inital_errors = $errors;
 
-            echo "password = $password";
-            if (strlen($password) < MIN_PASSWD_LEN) {
+            if (strlen($passwd) < MIN_PASSWD_LEN) {
                 $errors[] = "Password needs a minimum of " . MIN_PASSWD_LEN . " characters.";
             }
 
-            if (!preg_match(NUMBER_REGEX, $password)) {
+            if (!preg_match(NUMBER_REGEX, $passwd)) {
                 $errors[] = "Password requires at least one number";
             }
 
-            if (!preg_match(UPPER_CASE_REGEX, $password)) {
+            if (!preg_match(UPPER_CASE_REGEX, $passwd)) {
                 $errors[] = "Password requires at least one upper case letter";
             }
 
-            if (!preg_match(LOWER_CASE_REGEX, $password)) {
+            if (!preg_match(LOWER_CASE_REGEX, $passwd)) {
                 $errors[] = "Password requires at least one lower case letter";
             }
 
-            if (!preg_match(SPECIAL_CHAR_REGEX, $password)) {
+            if (!preg_match(SPECIAL_CHAR_REGEX, $passwd)) {
                 $errors[] = "Password much include at least one symbol";
             }
 
@@ -160,6 +160,8 @@ To verify our passwords follow these rules; we're going to extend the `Users` cl
         }
     }
 ```
+
+In the block of code above I've used `...` to indicate that we're adding to what already exists in the class, if we end up replacing or modifying a function I'll say so before hand. So if you see `...` simply append the block to anything that exists already.
 
 Now we're at the position whereby the next action we need to perform involves writing the user to the database, so we're going to need a simple HTML form post the information to our script. Before creating the script there's one thing you need to make sure you're doing and that is using HTTPs. It doesn't matter how secure you're making the database if you're sending everything over the internet in plain text! So, go away and set-up a HTTPs certificate for your site before it goes anywhere near the internet.
 
@@ -177,7 +179,7 @@ We need a simple index page, so put the following into `index.php`
 </html>
 ```
 
-Now we're going to create the form to register users, at the moment we're not going to include client side validation, we'll provide that later. Our registration form will be
+Now we're going to create the form to register users, at the moment we're not going to include client side validation, we'll provide that later. Our registration form will be saved in a file called `register.php` and contain.
 
 ```
 <?php
@@ -192,24 +194,40 @@ Now we're going to create the form to register users, at the moment we're not go
         <?php
             $error = "";
             if (!empty($_POST)) {
+                // Ensure that the username, password1 and email inputs have something in them...
                 if (empty($_POST['username']) || empty($_POST['password1'] || empty($_POST['email']))) {
                     $error = "The username, password and email are all required.";
                 } else {
+                    // Ensure that the passwords match each other
                     if ($_POST['password1'] != $_POST['password2']) {
                         $error .= "Passwords do not match<br />";
                     }
+                    // Ensure that the email address is a 'valid' email address, this does not mean it actually
+                    // exists.
                     if (!filter_var($_POST['email'], FILTER_VALIDATE_EMAIL)) {
                         $error .= "Invalid email format<br />";
                     }
 
                     $user = new Users();
                     $password_errors = [];
+                    // Check to make sure that the password is a strong password; if it doesn't add each item
+                    // in the password errors array to the error string
                     if (!$user->is_password_strong($_POST['password1'], $password_errors)) {
-                        $error .= implode("<br />")
+                        $error .= implode("<br />", $password_errors);
                     }
 
                     if (empty($error)) {
-
+                        try {
+                            $user->create_user($_POST['username'],
+                                               $_POST['password1'],
+                                               $_POST['email'],
+                                               $_POST['first_name'],
+                                               $_POST['family_name']);
+                            echo '<meta http-equiv="refresh" content="2; URL=/user_cp.php" />';
+                            echo 'Registration successful, if you are not redirect to the control panel in 2s click <a href="/user_cp.php">here</a>.';
+                        } catch (Exception $e) {
+                              $error = "Failed to register: " . $e->getMessage() . "<br />";
+                        }
                     }
                 }
             }
@@ -238,11 +256,92 @@ Now we're going to create the form to register users, at the moment we're not go
 </html>
 ```
 
-Now that we're happy with the strength of our password we need to hash it securely, we'll do this using the [password_hash](http://php.net/manual/en/function.password-hash.php) function which creates a strong one-way hash, PHP will take care of creating a new salt for each hash. We'll be generating the hash using the Blowfish algorithm. Assuming our plain text password is stored in the `$password` variable we simply run:
+The `Users::create_user` function needs to be added to the `Users` class, and contains the following:
+```
+<?php
+    session_start();
+    ...
 
+    class Users {
+        ...
+
+        public function create_user($username, $password, $email, $name, $family_name) {
+            // Hash the password using Blowfish
+            $password = password_hash($password, PASSWORD_BCRYPT);
+            $user_id = $this->usersDAL->create_user($username, $password, $email, $name, $family_name);
+
+            $this->id = $user_id;
+            $this->username = $username;
+            $this->password = $password;
+            $this->email = $email;
+            $this->name = $name;
+            $this->family_name = $family_name;
+            $this->session_id = $this->usersDAL->get_session_id($username);
+
+            $_SESSION['uname'] = $this->username;
+            $_SESSION['sid'] = $this->session_id;
+        }
+    }
+?>
 ```
-$hashed_password = password_hash($password, PASSWORD_BCRYPT);
+
+This function is pretty straight forward, we create a hash of our password using the PHP [password_hash](http://php.net/manual/en/function.password-hash.php) function which creates a strong one-way hash. We don't need to worry about creating a [salt](https://en.wikipedia.org/wiki/Salt_(cryptography)) as PHP will take care of this for us. We'll be generating the hash using the Blowfish algorithm. Once the hash has been genereated, we then pass through the information to the `UsersDAL::create_user` which will insert the record into the database for us. Once this is done, we simply store all of the information within the appropriate class variables.
+
+The updated `UsersDAL` class will contain three new methods, one to check whether or not the given username exists, `UserDAL::user_exists`, one to retrieve the newly generated session ID, `UserDAL::get_session_id` and the third to create the user within the database:
 ```
+<?php
+session_start();
+require_once('config.inc.php');
+
+class UsersDAL {
+    ...
+
+    public function user_exists($username) {
+        $stmt = $this->db->prepare("SELECT COUNT(*) FROM users WHERE username = :username");
+        $stmt->bindParam(':username', $prep_username);
+        $stmt->execute();
+
+        return ($stmt->fetchColumn(0) === 1);
+    }
+
+    public function create_user($username, $password, $email, $name, $family_name) {
+        if ($this->user_exists($username)) {
+            throw new Exception("Username alrady exists");
+        }
+
+        $stmt = $this->db->prepare("INSERT INTO users(username, password, email, name, family_name, session_id) VALUES (:username, :password, :email, :name, :family_name, :sid)");
+        $stmt->bindParam(':username', $prep_username);
+        $stmt->bindParam(':password', $prep_passwd);
+        $stmt->bindParam(':email', $prep_email);
+        $stmt->bindParam(':name', $prep_name);
+        $stmt->bindParam(':family_name', $prep_family_name);
+        $stmt->bindParam(':sid', $prep_sid);
+
+        $prep_username = $username;
+        $prep_passwd = $password;
+        $prep_email = $email;
+        $prep_name = $name;
+        $prep_family_name = $family_name;
+        $prep_sid = session_id();
+        $stmt->execute();
+
+        return $this->db->lastInsertId();
+    }
+
+    public function get_session_id($username) {
+        $stmt = $this->db->prepare("SELECT session_id FROM users WHERE username = :username");
+        $stmt->bindParam(':username', $prep_username);
+        $prep_username = $username;
+        $stmt->execute();
+        $data = $stmt->fetch();
+        return $data[0];
+    }
+}
+?>
+```
+
+
+
 
 This is then simply verified by using the [password_verify](http://php.net/manual/en/function.password-verify.php) function, fro example if the password we wanted to store was in `$password` and the hash stored in `$passwd_hash` we'd run:
 
