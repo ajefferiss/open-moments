@@ -100,7 +100,6 @@ We'e going to contain all of the user related functions to a new class called `U
     class Users {
         public $id;
         public $username;
-        public $password;
         public $email;
         public $name;
         public $family_name;
@@ -277,7 +276,6 @@ The `Users::create_user` function needs to be added to the `Users` class, and co
 
             $this->id = $user_id;
             $this->username = $username;
-            $this->password = $password;
             $this->email = $email;
             $this->name = $name;
             $this->family_name = $family_name;
