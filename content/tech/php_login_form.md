@@ -290,7 +290,7 @@ The `Users::create_user` function needs to be added to the `Users` class, and co
 ?>
 ```
 
-This function is pretty straight forward, we create a hash of our password using the PHP [password_hash](http://php.net/manual/en/function.password-hash.php) function which creates a strong one-way hash. We don't need to worry about creating a [salt](https://en.wikipedia.org/wiki/Salt_(cryptography)) as PHP will take care of this for us. We'll be generating the hash using the Blowfish algorithm. Once the hash has been genereated, we then pass through the information to the `UsersDAL::create_user` which will insert the record into the database for us. Once this is done, we simply store all of the information within the appropriate class variables.
+This function is pretty straight forward, we create a hash of our password using the PHP [password_hash](http://php.net/manual/en/function.password-hash.php) function which creates a strong one-way hash. We don't need to worry about creating a [salt](https://en.wikipedia.org/wiki/Salt_(cryptography)) as PHP will take care of this for us. We'll be generating the hash using the Blowfish algorithm. Once the hash has been generated, we then pass through the information to the `UsersDAL::create_user` which will insert the record into the database for us. Once this is done, we simply store all of the information within the appropriate class variables.
 
 The updated `UsersDAL` class will contain three new methods, one to check whether or not the given username exists, `UserDAL::user_exists`, one to retrieve the newly generated session ID, `UserDAL::get_session_id` and the third to create the user within the database:
 ```
