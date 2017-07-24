@@ -104,6 +104,11 @@ We'e going to contain all of the user related functions to a new class called `U
         public $email;
         public $name;
         public $family_name;
+        private $usersDAL;
+
+        public function __construct() {
+            $this->usersDAL = new UsersDAL();
+        }
     }
 ?>
 ```
