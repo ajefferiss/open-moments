@@ -91,7 +91,7 @@ class UsersDAL {
 ```
 
 ### Creating Users
-We'e going to contain all of the user related functions to a new class called `Users` in a file called `Users.php` this will let us map the database rows onto a PHP object so that we can have [ORM](https://en.wikipedia.org/wiki/Object-relational_mapping)-like behaviour. Our initial `Users` class will be:
+We'e going to contain all of the user related functions to a new class called `Users` in a file called `Users.php` this will let us map the database rows onto a PHP object. Our initial `Users` class will be:
 
 ```
 <?php
