@@ -304,9 +304,12 @@ class UsersDAL {
     public function user_exists($username) {
         $stmt = $this->db->prepare("SELECT COUNT(*) FROM users WHERE username = :username");
         $stmt->bindParam(':username', $prep_username);
+        $prep_username = $username;
         $stmt->execute();
 
-        return ($stmt->fetchColumn(0) === 1);
+        $data = $stmt->fetchColumn(0);
+
+        return ($data == 1);
     }
 
     public function create_user($username, $password, $email, $name, $family_name) {
