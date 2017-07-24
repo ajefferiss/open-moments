@@ -346,8 +346,94 @@ class UsersDAL {
 ?>
 ```
 
+After successfully registering a new user; we'll be redirected to a `user_cp.php` page which currently does not exist. This page will ultimately be used to show us how to check users permissions and login sessions. We'll start with the following script which simply checks whether or not we have a login session and redirects to the login page if we do not. It makes use of a new method `Users::logged_in`.
 
+```
+<?php
+    require_once('Users.php');
 
+    $user = new Users();
+    if (!$user->logged_in()) {
+        header('Location: /login.php');
+    }
+?>
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>User Control Panel</title>
+    </head>
+    <body>
+        Welcome <?php echo $user->username; ?>.
+    </body>
+</html>
+```
+
+The new `Users::logged_in` function below firstly checks to see if our expected `$_SESSION` variables have been set; if they have then the `UsersDAL` functions `verify_session` and `load_user` are used in turn to compare our session against the database and load all of our users information.
+```
+<?php
+    ...
+
+    class Users {
+        ...
+
+        public function logged_in() {
+            if (!isset($_SESSION['uname']) || !isset($_SESSION['sid'])) {
+                return false;
+            }
+
+            try {
+                $this->usersDAL->verify_session($_SESSION['uname'], $_SESSION['sid']);
+                $newUser = $this->usersDAL->load_user($_SESSION['uname']);
+
+                $this->id = $newUser['id'];
+                $this->username = $newUser['username'];
+                $this->email = $newUser['email'];
+                $this->name = $newUser['name'];
+                $this->family_name = $newUser['family_name'];
+
+                return true;
+            } catch (Exception $e) {
+                // Failed to initialise the logged in user...
+                return false;
+            }
+        }
+    }
+?>
+```
+New functions within `UsersDAL`:
+```
+<?php
+    ...
+
+    class UsersDAL {
+        ...
+
+        public function verify_session($username, $sid) {
+            $stmt = $this->db->prepare("SELECT COUNT(*) FROM users WHERE username = :username AND session_id = :sid");
+            $stmt->bindParam(':username', $prep_username);
+            $stmt->bindParam(':sid', $prep_sid);
+            $prep_username = $username;
+            $prep_sid = $sid;
+            $stmt->execute();
+
+            $data = $stmt->fetchColumn(0);
+            if ($data != 1) {
+                throw new Exception('Session and username mismatch');
+            }
+        }
+
+        public function load_user($username) {
+            $stmt = $this->db->prepare("SELECT id, username, email, name, family_name, session_id FROM users WHERE username = :username");
+            $stmt->bindParam(':username', $prep_username);
+            $prep_username = $username;
+            $stmt->execute();
+            $result = $stmt->fetch();
+
+            return $result;
+        }
+    }
+?>
+```
 
 This is then simply verified by using the [password_verify](http://php.net/manual/en/function.password-verify.php) function, fro example if the password we wanted to store was in `$password` and the hash stored in `$passwd_hash` we'd run:
 
