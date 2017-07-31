@@ -197,7 +197,7 @@ Now we're going to create the form to register users, at the moment we're not go
     <body>
         <?php
             $error = "";
-            if (!empty($_POST)) {
+            if (!empty($_POST) && isset($_POST['submit']) && $_POST['submit'] == 'Register User') {
                 // Ensure that the username, password1 and email inputs have something in them...
                 if (empty($_POST['username']) || empty($_POST['password1'] || empty($_POST['email']))) {
                     $error = "The username, password and email are all required.";
@@ -254,7 +254,7 @@ Now we're going to create the form to register users, at the moment we're not go
             Family Name: <br />
             <input type="text" name="family_name" id="family_name" /><br />
             <br />
-            <input type="submit" value="Register User" />
+            <input type="submit" name="submit" id="submit" value="Register User" />
         </form>
     </body>
 </html>
