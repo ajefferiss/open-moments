@@ -434,6 +434,77 @@ New functions within `UsersDAL`:
 ?>
 ```
 
+With the user control panel now running, we need a way for our users to logout. We'll do this by adding a form to the `user_cp.php` page which simply calls a new method `Users::logout`, and then redirects to the homepage. Our `users_cp.php` will become:
+```
+<?php
+    ...
+
+    $user = new Users();
+    if (!$user->logged_in()) {
+        header('Location: /login.php');
+    } else if (!empty($_POST) && isset($_POST['submit']) && $_POST['submit'] == 'Logout') {
+        $user->logout();
+        header('Location: /');
+    }
+?>
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>User Control Panel</title>
+    </head>
+    <body>
+        Welcome <?php echo $user->username; ?>.
+
+        <form action="" method="post">
+            <input type="submit" name="submit" id="submit" value="Logout" />
+        </form>
+    </body>
+</html>
+```
+
+While the `Users` class will unset the `$_SESSION` variables and clear the `session_id` from the database, via a call to `UsersDAL::clear_session`.
+```
+<?php
+    ...
+
+    class Users {
+        ...
+
+        public function logout() {
+            $this->usersDAL->clear_session($_SESSION['uname'], $_SESSION['sid']);
+
+            unset($_SESSION['uname']);
+            unset($_SESSION['sid']);
+        }
+    }
+?>
+```
+
+```
+<?php
+    ...
+
+    class UsersDAL {
+        ...
+
+        public function clear_session($username, $session_id) {
+            $stmt = $this->db->prepare("UPDATE users SET session_id = NULL WHERE username = :username AND session_id = :session_id");
+            $stmt->bindParam(':username', $prep_username);
+            $stmt->bindParam(':session_id', $prep_session_id);
+            $prep_username = $username;
+            $prep_session_id = $session_id;
+            $stmt->execute();
+
+            $data = $stmt->rowCount();
+            if ($data != 1) {
+                throw new Exception('Session and username mismatch');
+            }
+        }
+    }
+?>
+```
+
+
 This is then simply verified by using the [password_verify](http://php.net/manual/en/function.password-verify.php) function, fro example if the password we wanted to store was in `$password` and the hash stored in `$passwd_hash` we'd run:
 
 ```
