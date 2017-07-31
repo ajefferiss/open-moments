@@ -263,7 +263,6 @@ Now we're going to create the form to register users, at the moment we're not go
 The `Users::create_user` function needs to be added to the `Users` class, and contains the following:
 ```
 <?php
-    session_start();
     ...
 
     class Users {
