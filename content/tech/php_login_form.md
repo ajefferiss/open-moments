@@ -72,21 +72,21 @@ The configuration for the database will be stored within a `config.inc.php` scri
 To contain the database access for the users, we're going to create a new `class` to handle all of the interactions called `UsersDAL` in a file called `UsersDAL.php`. We'll be added functions to this call through the tutorial, but the initial class will be:
 ```
 <?php
-require_once('config.inc.php');
+    require_once('config.inc.php');
 
-class UsersDAL {
-    private $db = null;
+    class UsersDAL {
+        private $db = null;
 
-    public function __construct() {
-        try {
-            $this->db = new PDO(DB_TYPE.':host='.DB_HOST.';dbname='.DB_NAME.';charset=utf8mb4', DB_USER, DB_PASS);
-        } catch (PDOException $e) {
-            print "Error: " . $e->getMessage() . "<br />";
-            die();
+        public function __construct() {
+            try {
+                $this->db = new PDO(DB_TYPE.':host='.DB_HOST.';dbname='.DB_NAME.';charset=utf8mb4', DB_USER, DB_PASS);
+            } catch (PDOException $e) {
+                print "Error: " . $e->getMessage() . "<br />";
+                die();
+            }
+            $this->db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         }
-        $this->db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     }
-}
 ?>
 ```
 
