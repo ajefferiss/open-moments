@@ -35,15 +35,9 @@ This will create a new user account, called `my_user` with a password of `my_pas
 Now that we've created our user, exit the MariaDB prompt so we can begin creating the tables required.
 
 ### Creating Tables
-Our users are going to have certain information stored about them; this includes the user name, the password and contact email address, all of which are required. Optionally we're going to store the first and family name of the user. To give us a little more control over what users can and can't do on our site we'll have the concept of roles. We'll create the following tables to store all of this information in, you can either run this SQL directly into MariaDB using the prompt or place it into a SQL script to run in the commands.
+Our users are going to have certain information stored about them; this includes the user name, the password and contact email address, all of which are required. Optionally we're going to store the first and family name of the user. You can either run this SQL directly into MariaDB using the prompt or place it into a SQL script to run in the commands.
 
 ```sql
-CREATE TABLE mysite.roles(
-    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    role VARCHAR(50) NOT NULL
-);
-INSERT INTO mysite.roles(role) VALUES('admin'), ('user'), ('commenter');
-
 CREATE TABLE mysite.users(
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) NOT NULL,
@@ -574,3 +568,13 @@ Finally we able to add our login page; this page will call the `Users::login` me
     </body>
 </html>
 ```
+
+### User Roles
+To give us a little more control over what users can and can't do on our site we'll have the concept of roles. We'll create the following tables to store all of this information in,
+
+
+CREATE TABLE mysite.roles(
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    role VARCHAR(50) NOT NULL
+);
+INSERT INTO mysite.roles(role) VALUES('admin'), ('user'), ('commenter');
