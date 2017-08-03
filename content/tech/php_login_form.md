@@ -260,7 +260,7 @@ Now we're going to create the form to register users, at the moment we're not go
 </html>
 ```
 
-The `Users::create_user` function needs to be added to the `Users` class, and contains the following:
+To create users we need to add a `Users::create_user` function; this function will be fairly simple and make use of a couple of additional helper functions; which will be used by the `login` process later. As when you create a user we want you to be automatically logged in if your registration is correct. The following functions will need to be added, `Users::login`, `Users::load_from_array` and finally `Users::setup_session`. These functions are defined like so:
 ```
 <?php
     ...
@@ -270,16 +270,40 @@ The `Users::create_user` function needs to be added to the `Users` class, and co
 
         public function create_user($username, $password, $email, $name, $family_name) {
             // Hash the password using Blowfish
-            $password = password_hash($password, PASSWORD_BCRYPT);
-            $user_id = $this->usersDAL->create_user($username, $password, $email, $name, $family_name);
+            $hash_password = password_hash($password, PASSWORD_BCRYPT);
+            $user_id = $this->usersDAL->create_user($username, $hash_password, $email, $name, $family_name);
+            $this->login($username, $password);
+        }
 
-            $this->id = $user_id;
-            $this->username = $username;
-            $this->email = $email;
-            $this->name = $name;
-            $this->family_name = $family_name;
-            $this->session_id = $this->usersDAL->get_session_id($username);
+        public function login($uname, $passwd) {
+            if (empty($uname) || empty($passwd)) {
+                return false;
+            }
 
+            try {
+                if (!password_verify($passwd, $this->usersDAL->get_password($uname))) {
+                    return false;
+                }
+                $this->usersDAL->create_session($uname);
+                $this->load_from_array($this->usersDAL->load_user($uname));
+                $this->setup_session();
+                return true;
+            } catch (Exception $e) {
+                // Failed to verify the username and password...
+                return false;
+            }
+        }
+
+        private function load_from_array($userInfo) {
+            $this->id = $userInfo['id'];
+            $this->username = $userInfo['username'];
+            $this->email = $userInfo['email'];
+            $this->name = $userInfo['name'];
+            $this->family_name = $userInfo['family_name'];
+            $this->session_id = $userInfo['session_id'];
+        }
+
+        private function setup_session() {
             $_SESSION['uname'] = $this->username;
             $_SESSION['sid'] = $this->session_id;
         }
@@ -287,9 +311,11 @@ The `Users::create_user` function needs to be added to the `Users` class, and co
 ?>
 ```
 
-This function is pretty straight forward, we create a hash of our password using the PHP [password_hash](http://php.net/manual/en/function.password-hash.php) function which creates a strong one-way hash. We don't need to worry about creating a [salt](https://en.wikipedia.org/wiki/Salt_(cryptography)) as PHP will take care of this for us. We'll be generating the hash using the Blowfish algorithm. Once the hash has been generated, we then pass through the information to the `UsersDAL::create_user` which will insert the record into the database for us. Once this is done, we simply store all of the information within the appropriate class variables.
+The `Users::create_user` function is pretty straight forward, we create a hash of our password using the PHP [password_hash](http://php.net/manual/en/function.password-hash.php) function which creates a strong one-way hash. We don't need to worry about creating a [salt](https://en.wikipedia.org/wiki/Salt_(cryptography)) as PHP will take care of this for us. We'll be generating the hash using the Blowfish algorithm. Once the hash has been generated, we then pass through the information to the `UsersDAL::create_user` which will insert the record into the database for us. Once this is done, we login the user via `Users::login`.
 
-The updated `UsersDAL` class will contain three new methods, one to check whether or not the given username exists, `UserDAL::user_exists`, one to retrieve the newly generated session ID, `UserDAL::get_session_id` and the third to create the user within the database:
+The login function retrieves the users password from the database and passes the password we're logging in with, and the hashed password into the [password_verify](http://php.net/manual/en/function.password-verify.php) function. This function will then ensure that the passwords match; if they don't then we exit out before creating the database session, and loading the user remaining users information so that we can setup a PHP session.
+
+Beyond the methods mentioned above, the `UsersDAL` class will be updated to include a `UsersDAL::user_exists` method so that we can check to see if a user exists before creating it. The updated `UsersDAL` class will be:
 ```
 <?php
 session_start();
@@ -314,32 +340,48 @@ class UsersDAL {
             throw new Exception("Username alrady exists");
         }
 
-        $stmt = $this->db->prepare("INSERT INTO users(username, password, email, name, family_name, session_id) VALUES (:username, :password, :email, :name, :family_name, :sid)");
+        $stmt = $this->db->prepare("INSERT INTO users(username, password, email, name, family_name) VALUES (:username, :password, :email, :name, :family_name)");
         $stmt->bindParam(':username', $prep_username);
         $stmt->bindParam(':password', $prep_passwd);
         $stmt->bindParam(':email', $prep_email);
         $stmt->bindParam(':name', $prep_name);
         $stmt->bindParam(':family_name', $prep_family_name);
-        $stmt->bindParam(':sid', $prep_sid);
 
         $prep_username = $username;
         $prep_passwd = $password;
         $prep_email = $email;
         $prep_name = $name;
         $prep_family_name = $family_name;
-        $prep_sid = session_id();
         $stmt->execute();
-
-        return $this->db->lastInsertId();
     }
 
-    public function get_session_id($username) {
-        $stmt = $this->db->prepare("SELECT session_id FROM users WHERE username = :username");
+    public function get_password($username) {
+        $stmt = $this->db->prepare("SELECT password FROM users WHERE username = :username");
         $stmt->bindParam(':username', $prep_username);
         $prep_username = $username;
         $stmt->execute();
-        $data = $stmt->fetch();
-        return $data[0];
+        $result = $stmt->fetch();
+
+        return $result['password'];
+    }
+
+    public function create_session($username) {
+        $stmt = $this->db->prepare("UPDATE users SET session_id = :session_id WHERE username = :username");
+        $stmt->bindParam(':session_id', $prep_session_id);
+        $stmt->bindParam(':username', $prep_username);
+        $prep_session_id = session_id();
+        $prep_username = $username;
+        $stmt->execute();
+    }
+
+    public function load_user($username) {
+        $stmt = $this->db->prepare("SELECT id, username, email, name, family_name, session_id FROM users WHERE username = :username");
+        $stmt->bindParam(':username', $prep_username);
+        $prep_username = $username;
+        $stmt->execute();
+        $result = $stmt->fetch();
+
+        return $result;
     }
 }
 ?>
@@ -382,14 +424,7 @@ The new `Users::logged_in` function below firstly checks to see if our expected 
 
             try {
                 $this->usersDAL->verify_session($_SESSION['uname'], $_SESSION['sid']);
-                $newUser = $this->usersDAL->load_user($_SESSION['uname']);
-
-                $this->id = $newUser['id'];
-                $this->username = $newUser['username'];
-                $this->email = $newUser['email'];
-                $this->name = $newUser['name'];
-                $this->family_name = $newUser['family_name'];
-
+                $this->load_from_array($this->usersDAL->load_user($_SESSION['uname']));
                 return true;
             } catch (Exception $e) {
                 // Failed to initialise the logged in user...
@@ -399,7 +434,8 @@ The new `Users::logged_in` function below firstly checks to see if our expected 
     }
 ?>
 ```
-New functions within `UsersDAL`:
+
+The new `UsersDAL::verify_session` method simply counts the number of rows returned from the database when selecting based upon the username and session ID we're passed. As there should be only one record returned if the user is successfully logged in, we compare the count against 1 and throw an exception if there isn't.
 ```
 <?php
     ...
@@ -419,16 +455,6 @@ New functions within `UsersDAL`:
             if ($data != 1) {
                 throw new Exception('Session and username mismatch');
             }
-        }
-
-        public function load_user($username) {
-            $stmt = $this->db->prepare("SELECT id, username, email, name, family_name, session_id FROM users WHERE username = :username");
-            $stmt->bindParam(':username', $prep_username);
-            $prep_username = $username;
-            $stmt->execute();
-            $result = $stmt->fetch();
-
-            return $result;
         }
     }
 ?>
@@ -462,7 +488,7 @@ With the user control panel now running, we need a way for our users to logout. 
 </html>
 ```
 
-While the `Users` class will unset the `$_SESSION` variables and clear the `session_id` from the database, via a call to `UsersDAL::clear_session`.
+The `Users::logout` method simply calls `UsersDAL::clear_session` and if that's successful, no exception is thrown, we just unset the relevant `$_SESSION` variables.
 ```
 <?php
     ...
@@ -480,6 +506,7 @@ While the `Users` class will unset the `$_SESSION` variables and clear the `sess
 ?>
 ```
 
+The `UsersDAL::clear_session` method takes the current users session ID and username; and then sets the `session_id` for the user to `NULL`. It then ensures that one row was updated, again because the username / session ID combination should be unique, if this is not the case then a exception is thrown and `Users::logout` will not unset the session details.
 ```
 <?php
     ...
@@ -504,13 +531,46 @@ While the `Users` class will unset the `$_SESSION` variables and clear the `sess
 ?>
 ```
 
-
-This is then simply verified by using the [password_verify](http://php.net/manual/en/function.password-verify.php) function, fro example if the password we wanted to store was in `$password` and the hash stored in `$passwd_hash` we'd run:
+Finally we able to add our login page; this page will call the `Users::login` method and redirect to the `user_cp.php` if successful, otherwise a generic error will be displayed. The `login.php` page will contain:
 
 ```
-if (password_verify($password, $passwd_hash)) {
-    echo "Password matches!";
-} else {
-    echo "Invalid password";
-}
+<?php
+    require_once('Users.php');
+
+    $user = new Users();
+    $loginError = "";
+    if ($user->logged_in()) {
+        header('Location: /user_cp.php');
+    } else if (!empty($_POST) && isset($_POST['submit']) && $_POST['submit'] == 'Login') {
+        if (!empty($_POST['uname']) && !empty($_POST['passwd'])) {
+            if ($user->login($_POST['uname'], $_POST['passwd'])) {
+                header('Location: /user_cp.php');
+            }
+            $loginError = "Invalid username or password";
+        } else {
+            $loginError = "Both username and password required";
+        }
+    }
+?>
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Simple Users site - Login</title>
+    </head>
+    <body>
+        <?php
+            if (isset($loginError) && $loginError != "") {
+                echo '<p style="color:red">'.$loginError.'</p>';
+            }
+        ?>
+        <form action="" method="POST">
+            Username:<br />
+            <input type="text" id="uname" name="uname" /><br />
+            Password:<br />
+            <input type="password" id="passwd" name="passwd" /><br />
+            <br />
+            <input type="submit" id="submit" name="submit" value="Login" />
+         </form>
+    </body>
+</html>
 ```
