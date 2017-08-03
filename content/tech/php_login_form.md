@@ -569,6 +569,12 @@ Finally we able to add our login page; this page will call the `Users::login` me
 </html>
 ```
 
+### Securing the Session
+Now that we're able to create users, login and logout we need to consider how secure our session is. By default PHP sessions are not that secure; but it doesn't take a lot of work to improve them. We're going to make use of the `SecureSessionHandler` class created by [eddmann](https://github.com/eddmann) in his [Securing Sessions in PHP tutorial](http://eddmann.com/posts/securing-sessions-in-php/). The complete class is available as [gist](https://gist.github.com/eddmann/10262795).
+
+
+
+
 ### User Roles
 To give us a little more control over what users can and can't do on our site we'll have the concept of roles. We'll create the following tables to store all of this information in,
 
