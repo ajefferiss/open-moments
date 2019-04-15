@@ -18,14 +18,15 @@ PATH = 'content'
 PAGE_PATHS = ['pages']
 
 PLUGIN_PATHS = ['../pelican-plugins/']
-PLUGINS = ['read_more_link']
+#PLUGINS = ['read_more_link']
 
 PYGMENTS_STYLE = 'monokai'
-MARKDOWN = {'extensions': [
-                            'toc',
-                            'fenced_code',
-                            'codehilite(css_class=highlight)',
-                          ]}
+MARKDOWN = {
+	'extensions': ['toc', 'fenced_code', 'codehilite'],
+	'extension_configs': {
+		'codehilite': {'css_class': 'highlight'},
+	}
+}
 
 # Feed generation is usually not desired when developing
 FEED_ALL_ATOM = None
